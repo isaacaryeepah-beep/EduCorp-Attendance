@@ -211,7 +211,7 @@ async function handleAdminLogin() {
     const password = document.getElementById('admin-login-password').value;
     if (!email) return showAdminError('Please enter your email');
     if (!password) return showAdminError('Please enter your password');
-    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, loginRole: 'admin' }) });
     token = data.token;
     localStorage.setItem('token', token);
     currentUser = data.user;
@@ -251,7 +251,7 @@ async function handleLecturerLogin() {
     const password = document.getElementById('lecturer-login-password').value;
     if (!email) return showLecturerError('Please enter your email');
     if (!password) return showLecturerError('Please enter your password');
-    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, portalMode: 'academic' }) });
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, portalMode: 'academic', loginRole: 'lecturer' }) });
     if (data.user && !data.user.isApproved) {
       return showPendingApproval('Your account is pending admin approval. Please wait for your institution admin to approve your account.');
     }
