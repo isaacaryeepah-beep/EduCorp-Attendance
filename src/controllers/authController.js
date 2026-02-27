@@ -446,6 +446,33 @@ exports.login = async (req, res) => {
       return res.status(403).json({ error: `Your institution is set up as ${company.mode}. Please use the ${correctPortal} to sign in.` });
     }
 
+    // ── Role-portal enforcement ──────────────────────────────────────────────
+    // Each portal only accepts specific roles — prevents admins logging in as
+    // lecturers, employees logging in as admins, etc.
+    const PORTAL_ALLOWED_ROLES = {
+      admin:    ["admin", "superadmin", "manager"],
+      lecturer: ["lecturer"],
+      employee: ["employee"],
+      student:  ["student"],
+    };
+    if (loginRole && PORTAL_ALLOWED_ROLES[loginRole]) {
+      const allowed = PORTAL_ALLOWED_ROLES[loginRole];
+      if (!allowed.includes(user.role)) {
+        // Give a specific helpful message depending on what they tried
+        if (loginRole === "lecturer" && ["admin", "superadmin"].includes(user.role)) {
+          return res.status(403).json({ error: "You are registered as an Admin. Please use the Admin Portal to sign in." });
+        }
+        if (loginRole === "admin" && user.role === "lecturer") {
+          return res.status(403).json({ error: "You are registered as a Lecturer. Please use the Lecturer Portal to sign in." });
+        }
+        if (loginRole === "admin" && user.role === "employee") {
+          return res.status(403).json({ error: "You are registered as an Employee. Please use the Employee Portal to sign in." });
+        }
+        return res.status(403).json({ error: `This portal is for ${loginRole}s only. Please use the correct portal to sign in.` });
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     if (company && !company.hasAccess && user.role !== "superadmin" && user.role !== "admin") {
       return res.status(403).json({
         error: "Subscription inactive",
