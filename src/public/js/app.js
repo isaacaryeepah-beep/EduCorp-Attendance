@@ -242,7 +242,7 @@ async function handleAdminLogin() {
     currentUser = data.user;
     showDashboard(data);
   } catch (e) {
-    showAdminError(e.message || 'Login failed. Please check your credentials.');
+    showAdminError('Invalid email or password. Please try again.');
   }
 }
 
@@ -299,7 +299,7 @@ async function handleLecturerLogin() {
     currentUser = data.user;
     showDashboard(data);
   } catch (e) {
-    showLecturerError(e.message || 'Login failed. Please check your credentials.');
+    showLecturerError('Invalid email or password. Please try again.');
   }
 }
 
@@ -394,7 +394,7 @@ async function handleEmployeeLogin() {
     currentUser = data.user;
     showDashboard(data);
   } catch (e) {
-    showEmployeeError(e.message || 'Login failed. Please check your credentials.');
+    showEmployeeError('Invalid email or password. Please try again.');
   }
 }
 
@@ -437,7 +437,7 @@ async function handleStudentLogin() {
     currentUser = data.user;
     showDashboard(data);
   } catch (e) {
-    showStudentError(e.message || 'Login failed. Please check your credentials.');
+    showStudentError('Invalid student ID or password. Please try again.');
   }
 }
 
