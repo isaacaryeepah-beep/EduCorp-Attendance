@@ -86,6 +86,13 @@ function selectPortal(type) {
 }
 
 function showPortalSelector() {
+  // If legal page is showing, restore the original auth-page structure
+  const authPage = document.getElementById('auth-page');
+  if (authPage && authPage.querySelector('.legal-page')) {
+    authPage.innerHTML = _authPageOriginalHTML;
+  }
+
+  authPage.style.display = 'flex';
   document.getElementById('admin-auth').classList.add('hidden');
   document.getElementById('lecturer-auth').classList.add('hidden');
   document.getElementById('employee-auth').classList.add('hidden');
@@ -95,23 +102,7 @@ function showPortalSelector() {
   document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
   selectedPortalType = null;
 
-  // Add legal footer links if not already present
-  const ps = document.getElementById('portal-selector');
-  if (ps && !ps.querySelector('.legal-footer')) {
-    const footer = document.createElement('div');
-    footer.className = 'legal-footer';
-    footer.style.cssText = 'text-align:center;padding:24px 0 8px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap;';
-    const links = [
-      { label: 'Privacy Policy', page: 'privacy' },
-      { label: 'Terms of Service', page: 'terms' },
-      { label: 'Contact & Support', page: 'contact' },
-    ];
-    footer.innerHTML = links.map((l, i) =>
-      (i > 0 ? '<span style="color:#cbd5e1;font-size:13px">·</span>' : '') +
-      '<span onclick="showLegalPage(' + "'" + l.page + "'" + ')" style="color:#6366f1;font-size:13px;cursor:pointer;font-weight:500;text-decoration:underline;text-underline-offset:2px">' + l.label + '</span>'
-    ).join('');
-    ps.appendChild(footer);
-  }
+  injectLegalFooter();
 }
 
 function backToPortalSelector() {
@@ -3174,6 +3165,34 @@ function closeModal(event) {
   if (event && event.target !== event.currentTarget) return;
   document.getElementById('modal-container').classList.add('hidden');
   document.getElementById('modal-container').innerHTML = '';
+}
+
+// Save original auth-page HTML so Back button can restore it
+let _authPageOriginalHTML = '';
+document.addEventListener('DOMContentLoaded', function() {
+  const authPage = document.getElementById('auth-page');
+  if (authPage) {
+    _authPageOriginalHTML = authPage.innerHTML;
+    // Inject footer links immediately on page load
+    injectLegalFooter();
+  }
+});
+
+function injectLegalFooter() {
+  const ps = document.getElementById('portal-selector');
+  if (ps && !ps.querySelector('.legal-footer')) {
+    const footer = document.createElement('div');
+    footer.className = 'legal-footer';
+    footer.style.cssText = 'text-align:center;padding:24px 0 8px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap;';
+    const fn = 'showLegalPage';
+    const cs = 'color:#6366f1;font-size:13px;cursor:pointer;font-weight:500;text-decoration:underline;text-underline-offset:2px';
+    const dot = '<span style="color:#cbd5e1;font-size:13px">\u00b7</span>';
+    footer.innerHTML =
+      '<span onclick="' + fn + '(\"privacy\")" style="' + cs + '">Privacy Policy</span>' + dot +
+      '<span onclick="' + fn + '(\"terms\")" style="' + cs + '">Terms of Service</span>' + dot +
+      '<span onclick="' + fn + '(\"contact\")" style="' + cs + '">Contact &amp; Support</span>';
+    ps.appendChild(footer);
+  }
 }
 
 if (token) {
