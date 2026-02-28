@@ -19,18 +19,24 @@ router.get(
         return res.status(400).json({ error: "Query must be at least 2 characters" });
       }
 
-      // Get company ID safely regardless of how it's stored
+      // Safely extract company ID whether it's a string, ObjectId, or populated object
       let companyId = req.user.company;
-      if (companyId && typeof companyId === 'object' && companyId._id) {
+      if (companyId && typeof companyId === "object" && companyId._id) {
         companyId = companyId._id;
       }
+      companyId = String(companyId);
 
-      console.log("Search query:", q, "Company:", companyId, "Role filter:", role);
+      console.log("[SEARCH] q:", q, "| companyId:", companyId, "| role filter:", role);
+
+      // Find all users in the same company first (no regex yet) to debug
+      const allInCompany = await User.find({ company: companyId }).select("name").lean();
+      console.log("[SEARCH] Total users in company:", allInCompany.length, allInCompany.map(u => u.name));
 
       const searchRegex = new RegExp(q.trim(), "i");
 
       const filter = {
         company: companyId,
+        _id: { $ne: req.user._id },
         $or: [
           { name: searchRegex },
           { email: searchRegex },
@@ -39,27 +45,20 @@ router.get(
         ],
       };
 
-      // Exclude self
-      if (req.user._id) {
-        filter._id = { $ne: req.user._id };
-      }
-
       if (role && role !== "all") {
         filter.role = role;
       }
-
-      console.log("Search filter:", JSON.stringify(filter));
 
       const users = await User.find(filter)
         .select("name email indexNumber employeeId role isActive createdAt department")
         .limit(50)
         .lean();
 
-      console.log("Search results:", users.length);
+      console.log("[SEARCH] Results found:", users.length);
 
       return res.json({ users });
     } catch (e) {
-      console.error("Search error:", e);
+      console.error("[SEARCH] Error:", e);
       return res.status(500).json({ error: "Search failed: " + e.message });
     }
   }
