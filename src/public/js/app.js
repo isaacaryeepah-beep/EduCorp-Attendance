@@ -211,7 +211,19 @@ async function handleAdminLogin() {
     const password = document.getElementById('admin-login-password').value;
     if (!email) return showAdminError('Please enter your email');
     if (!password) return showAdminError('Please enter your password');
-    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, loginRole: 'admin' }) });
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+    const companyMode = data.user && data.user.company ? data.user.company.mode : 'corporate';
+    const expectedMode = selectedPortalType === 'admin-academic' ? 'academic' : 'corporate';
+    if (companyMode !== expectedMode) {
+      try { await api('/api/auth/logout', { method: 'POST' }); } catch(e) {}
+      if (expectedMode === 'academic') {
+        return showAdminError('This is a Corporate account. Please use the Corporate Admin Portal to sign in.');
+      } else {
+        return showAdminError('This is an Academic account. Please use the Academic Admin Portal to sign in.');
+      }
+    }
+
     token = data.token;
     localStorage.setItem('token', token);
     currentUser = data.user;
@@ -251,7 +263,7 @@ async function handleLecturerLogin() {
     const password = document.getElementById('lecturer-login-password').value;
     if (!email) return showLecturerError('Please enter your email');
     if (!password) return showLecturerError('Please enter your password');
-    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, portalMode: 'academic', loginRole: 'lecturer' }) });
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, portalMode: 'academic' }) });
     if (data.user && !data.user.isApproved) {
       return showPendingApproval('Your account is pending admin approval. Please wait for your institution admin to approve your account.');
     }
@@ -606,8 +618,8 @@ function buildSidebar() {
   switch (role) {
     case 'admin':
       links.push({ id: 'approvals', label: 'Approvals', icon: approvalsIcon() });
-      links.push({ id: 'users', label: 'Users', icon: usersIcon() });
       links.push({ id: 'search', label: 'Search', icon: svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>') });
+      links.push({ id: 'users', label: 'Users', icon: usersIcon() });
       if (currentUser.company?.mode === 'academic') {
         links.push({ id: 'courses', label: 'Courses', icon: coursesIcon() });
       }
@@ -619,14 +631,13 @@ function buildSidebar() {
       links.push({ id: 'approvals', label: 'Approvals', icon: approvalsIcon() });
       links.push({ id: 'sessions', label: 'Sessions', icon: sessionsIcon() });
       links.push({ id: 'users', label: 'Users', icon: usersIcon() });
-      links.push({ id: 'search', label: 'Search', icon: svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>') });
       links.push({ id: 'meetings', label: 'Meetings', icon: meetingsIcon() });
       links.push({ id: 'reports', label: 'Reports', icon: reportsIcon() });
       break;
     case 'lecturer':
       links.push({ id: 'sessions', label: 'Sessions', icon: sessionsIcon() });
-      links.push({ id: 'courses', label: 'Courses', icon: coursesIcon() });
       links.push({ id: 'search', label: 'Search', icon: svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>') });
+      links.push({ id: 'courses', label: 'Courses', icon: coursesIcon() });
       links.push({ id: 'quizzes', label: 'Quizzes', icon: quizzesIcon() });
       links.push({ id: 'meetings', label: 'Meetings', icon: meetingsIcon() });
       links.push({ id: 'reports', label: 'Reports', icon: reportsIcon() });
@@ -648,6 +659,7 @@ function buildSidebar() {
       break;
     case 'superadmin':
       links.push({ id: 'approvals', label: 'Approvals', icon: approvalsIcon() });
+      links.push({ id: 'search', label: 'Search', icon: svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>') });
       links.push({ id: 'sessions', label: 'Sessions', icon: sessionsIcon() });
       links.push({ id: 'users', label: 'Users', icon: usersIcon() });
       links.push({ id: 'meetings', label: 'Meetings', icon: meetingsIcon() });
@@ -1261,14 +1273,8 @@ async function renderUsers() {
       <div class="page-header"><h2>${pageTitle}</h2><p>${pageDesc}</p></div>
       <div class="actions-bar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         ${canManage ? `<button class="btn btn-primary btn-sm" onclick="showCreateUserModal()">${addLabel}</button>` : ''}
-        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex:1;max-width:320px">
-          <div style="position:relative;width:100%">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-light);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="user-search-input" placeholder="Search by name, email or ID…" oninput="filterUsersTable()" style="width:100%;padding:8px 12px 8px 34px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);box-sizing:border-box">
-          </div>
-        </div>
         ${canManage ? `
-          <div id="bulk-actions" style="display:none;gap:8px;align-items:center">
+          <div id="bulk-actions" style="display:none;gap:8px;align-items:center;margin-left:auto">
             <span id="selected-count" style="font-size:13px;color:var(--text-light)">0 selected</span>
             <button class="btn btn-sm" style="background:#22c55e;color:#fff" onclick="bulkUserAction('activate')">Activate</button>
             <button class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="bulkUserAction('deactivate')">Deactivate</button>
@@ -1283,7 +1289,7 @@ async function renderUsers() {
               ${canManage ? '<th style="width:40px"><input type="checkbox" id="select-all-users" onchange="toggleSelectAllUsers()"></th>' : ''}
               <th>Name</th>${mode === 'corporate' ? '<th>Employee ID</th>' : ''}<th>Email / Index</th><th>Role</th><th>Status</th>${canManage ? '<th>Actions</th>' : ''}
             </tr></thead>
-            <tbody id="users-tbody">${otherUsers.map(u => `
+            <tbody>${otherUsers.map(u => `
               <tr id="user-row-${u._id}">
                 ${canManage ? `<td><input type="checkbox" class="user-checkbox" value="${u._id}" onchange="updateBulkActions()"></td>` : ''}
                 <td>${u.name}</td>
@@ -1306,132 +1312,6 @@ async function renderUsers() {
   } catch (e) {
     content.innerHTML = `<div class="card"><p>Error: ${e.message}</p></div>`;
   }
-}
-
-function filterUsersTable() {
-  const query = (document.getElementById('user-search-input')?.value || '').toLowerCase().trim();
-  const rows = document.querySelectorAll('#users-tbody tr');
-  rows.forEach(row => {
-    const text = row.textContent.toLowerCase();
-    row.style.display = (!query || text.includes(query)) ? '' : 'none';
-  });
-}
-
-async function renderSearch() {
-  const content = document.getElementById('main-content');
-  const role = currentUser.role;
-  const mode = currentUser.company?.mode || 'corporate';
-  const isAcademic = mode === 'academic';
-
-  let allUsers = [];
-  try {
-    if (['admin', 'superadmin', 'manager'].includes(role)) {
-      const data = await api('/api/users');
-      allUsers = (data.users || []).filter(u => u._id !== currentUser.id);
-    } else if (role === 'lecturer') {
-      // Lecturers search students enrolled in their courses
-      const coursesData = await api('/api/courses').catch(() => ({ courses: [] }));
-      const seen = new Set();
-      for (const course of (coursesData.courses || [])) {
-        for (const s of (course.enrolledStudents || [])) {
-          const id = s._id || s;
-          if (!seen.has(id)) {
-            seen.add(id);
-            allUsers.push({ _id: id, name: s.name || 'Unknown', indexNumber: s.indexNumber, email: s.email, role: 'student', course: course.name });
-          }
-        }
-      }
-      // Also try roster
-      try {
-        const rosterData = await api('/api/roster');
-        for (const entry of (rosterData.students || rosterData.roster || [])) {
-          const id = entry._id || entry.indexNumber;
-          if (!seen.has(id)) {
-            seen.add(id);
-            allUsers.push({ _id: id, name: entry.name || entry.indexNumber, indexNumber: entry.indexNumber, email: entry.email, role: 'student' });
-          }
-        }
-      } catch(e) {}
-    }
-  } catch(e) {
-    content.innerHTML = `<div class="card"><p>Error loading data: ${e.message}</p></div>`;
-    return;
-  }
-
-  const isLecturer = role === 'lecturer';
-  const colLabel = isAcademic ? (isLecturer ? 'Student ID' : 'Email / Index') : 'Email / Employee ID';
-
-  function renderTable(users) {
-    if (!users.length) return '<div class="empty-state" style="padding:32px 0"><p>No results found</p></div>';
-    return `<table id="search-results-table">
-      <thead><tr>
-        <th>Name</th>
-        <th>${colLabel}</th>
-        <th>Role</th>
-        ${isLecturer ? '<th>Course</th>' : '<th>Status</th>'}
-      </tr></thead>
-      <tbody>${users.map(u => `
-        <tr>
-          <td style="font-weight:500">${u.name || '—'}</td>
-          <td>${u.email || u.indexNumber || u.employeeId || '—'}</td>
-          <td><span class="role-badge role-${u.role}">${u.role}</span></td>
-          ${isLecturer
-            ? `<td>${u.course || '—'}</td>`
-            : `<td><span class="status-badge ${u.isActive !== false ? 'status-active' : 'status-stopped'}">${u.isActive !== false ? 'Active' : 'Inactive'}</span></td>`
-          }
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
-  }
-
-  content.innerHTML = `
-    <div class="page-header">
-      <h2>Search</h2>
-      <p>Find ${isLecturer ? 'students' : (isAcademic ? 'students, lecturers & admins' : 'employees & team members')} quickly</p>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="position:relative;flex:1;min-width:200px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-light);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="search-page-input" placeholder="Search by name, email, ID…" autofocus oninput="filterSearchPage()"
-            style="width:100%;padding:11px 14px 11px 38px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text);box-sizing:border-box;transition:border-color .2s"
-            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
-        </div>
-        ${!isLecturer ? `
-        <select id="search-role-filter" onchange="filterSearchPage()" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--surface);color:var(--text)">
-          <option value="">All Roles</option>
-          ${isAcademic
-            ? '<option value="student">Students</option><option value="lecturer">Lecturers</option><option value="admin">Admins</option>'
-            : '<option value="employee">Employees</option><option value="manager">Managers</option>'
-          }
-        </select>` : ''}
-        <span id="search-count" style="font-size:13px;color:var(--text-light);white-space:nowrap">${allUsers.length} ${isLecturer ? 'students' : 'users'}</span>
-      </div>
-    </div>
-    <div class="card" id="search-results-container">
-      ${renderTable(allUsers)}
-    </div>
-  `;
-
-  // Store allUsers in closure for filtering
-  window._searchAllUsers = allUsers;
-  window._searchIsLecturer = isLecturer;
-  window._searchRenderTable = renderTable;
-}
-
-function filterSearchPage() {
-  const query = (document.getElementById('search-page-input')?.value || '').toLowerCase().trim();
-  const roleFilter = document.getElementById('search-role-filter')?.value || '';
-  const allUsers = window._searchAllUsers || [];
-  const filtered = allUsers.filter(u => {
-    const matchesQuery = !query || [u.name, u.email, u.indexNumber, u.employeeId, u.course].some(v => v && v.toLowerCase().includes(query));
-    const matchesRole = !roleFilter || u.role === roleFilter;
-    return matchesQuery && matchesRole;
-  });
-  const container = document.getElementById('search-results-container');
-  if (container) container.innerHTML = window._searchRenderTable(filtered);
-  const countEl = document.getElementById('search-count');
-  if (countEl) countEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
 }
 
 function showCreateUserModal() {
@@ -1598,7 +1478,7 @@ async function renderMeetings() {
           <table>
             <thead><tr><th>Title</th><th>Host</th><th>Scheduled</th><th>Duration</th><th>Attendees</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>${data.meetings.map(m => {
-              const isCreator = m.createdBy?._id?.toString() === currentUser._id?.toString() || m.createdBy?._id === currentUser.id;
+              const isCreator = m.createdBy?._id === currentUser._id;
               const isAdmin = ['admin', 'superadmin'].includes(currentUser.role);
               const canControl = canManage && (isCreator || isAdmin);
               return `<tr>
@@ -2876,7 +2756,6 @@ async function markAttendance() {
 
 async function renderSubscription() {
   const content = document.getElementById('main-content');
-  content.innerHTML = '<div class="card"><p>Loading subscription info...</p></div>';
   try {
     const [statusData, plansData] = await Promise.all([
       api('/api/payments/status'),
@@ -2885,74 +2764,195 @@ async function renderSubscription() {
 
     const sub = statusData.subscription || {};
     const trial = statusData.trial || {};
-    const tr = trial.timeRemaining || { days: 0, hours: 0, minutes: 0 };
-    const hasAccess = statusData.hasAccess;
-
-    const statusColor = hasAccess ? 'var(--success)' : 'var(--danger)';
-    const statusLabel = sub.active ? 'Subscribed' : trial.active ? 'Free Trial' : 'Expired';
-
-    const endDateStr = sub.active && sub.endDate
-      ? new Date(sub.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-      : null;
-    const trialEndStr = trial.active && trial.endDate
-      ? new Date(trial.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-      : null;
-
-    const planCards = (plansData.plans || []).map(p => `
-      <div class="card" style="flex:1;min-width:240px;border:2px solid var(--border);border-radius:16px;padding:28px 24px;text-align:center">
-        <div style="font-size:20px;font-weight:700;margin-bottom:4px">${p.name}</div>
-        <div style="font-size:26px;font-weight:800;color:var(--primary);margin:12px 0">${p.paystack ? p.paystack.label : 'N/A'}</div>
-        <button class="btn btn-success" style="width:100%;padding:12px;font-size:15px;font-weight:600;margin-top:8px" onclick="subscribePlan('${p.id}', 'paystack')">${p.id === 'monthly' ? '📅' : '🗓️'} Pay with Paystack (GHS)</button>
-      </div>
-    `).join('');
+    const trialTimeRemaining = trial.timeRemaining || { days: 0, hours: 0, minutes: 0 };
 
     content.innerHTML = `
-      <div class="page-header"><h2>Subscription</h2><p>Manage your plan — powered by Paystack</p></div>
-
-      <div class="card" style="border-left:4px solid ${statusColor};margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-          <div>
-            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${statusColor}">${statusLabel}</div>
-            <div style="font-size:20px;font-weight:700;margin-top:4px">
-              ${sub.active ? (sub.plan === 'monthly' ? 'Monthly Plan' : 'Yearly Plan') : trial.active ? 'Free Trial Active' : 'No Active Plan'}
-            </div>
-            ${endDateStr ? `<div style="font-size:13px;color:var(--text-light);margin-top:2px">Renews on ${endDateStr}</div>` : ''}
-            ${trialEndStr && trial.active ? `<div style="font-size:13px;color:var(--text-light);margin-top:2px">Trial ends ${trialEndStr} · ${tr.days}d ${tr.hours}h ${tr.minutes}m remaining</div>` : ''}
-            ${!hasAccess ? `<div style="font-size:13px;color:var(--danger);font-weight:600;margin-top:4px">⚠️ Your access has expired. Subscribe below to continue.</div>` : ''}
+      <div class="page-header"><h2>Subscription</h2><p>Manage your subscription plan</p></div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" style="color:${statusData.hasAccess ? 'var(--success)' : 'var(--danger)'}">${statusData.hasAccess ? 'Active' : 'Inactive'}</div>
+          <div class="stat-label">Access Status</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${sub.active ? sub.plan : trial.active ? 'Trial' : 'None'}</div>
+          <div class="stat-label">Current Plan</div>
+        </div>
+        ${trial.active ? `
+          <div class="stat-card">
+            <div class="stat-value">${trial.daysRemaining || 0}</div>
+            <div class="stat-label">Trial Days Left</div>
           </div>
-          <div style="font-size:36px">${sub.active ? '✅' : trial.active ? '⏳' : '❌'}</div>
+          <div class="stat-card">
+            <div class="stat-value">${trialTimeRemaining.days}d ${trialTimeRemaining.hours}h ${trialTimeRemaining.minutes}m</div>
+            <div class="stat-label">Time Remaining</div>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="card">
+        <div class="card-title">Available Plans</div>
+        <div class="stats-grid">
+          ${(plansData.plans || []).map(p => `
+            <div class="stat-card">
+              <div class="stat-value" style="font-size:18px">${p.name}</div>
+              <div style="margin-top:12px">
+                <p style="font-size:13px;color:var(--text-light)">Stripe: ${p.stripe ? p.stripe.label : 'N/A'}</p>
+                <p style="font-size:13px;color:var(--text-light)">Paystack: ${p.paystack ? p.paystack.label : 'N/A'}</p>
+              </div>
+              <div style="margin-top:12px">
+                <button class="btn btn-primary btn-sm" onclick="subscribePlan('${p.id}', 'stripe')">Pay with Stripe ($)</button>
+                <button class="btn btn-success btn-sm" style="margin-top:4px" onclick="subscribePlan('${p.id}', 'paystack')">Pay with Paystack (GHS)</button>
+              </div>
+            </div>
+          `).join('')}
         </div>
       </div>
 
-      <div style="display:flex;gap:16px;flex-wrap:wrap">${planCards}</div>
+      ${!trial.active && !sub.active ? `
+        <div class="card" style="background:#fef2f2;border-color:#fecaca">
+          <p style="color:var(--danger);font-weight:600">Your free trial has ended. Please subscribe via Paystack or Stripe to continue using premium features.</p>
+        </div>
+      ` : ''}
     `;
   } catch (e) {
-    content.innerHTML = `<div class="card"><p>Error loading subscription: ${e.message}</p></div>`;
+    content.innerHTML = `<div class="card"><p>Error: ${e.message}</p></div>`;
   }
 }
 
 async function subscribePlan(plan, provider) {
-  if (provider !== 'paystack') {
-    alert('Only Paystack (GHS) is available. Please use Paystack.');
-    return;
-  }
-  const btn = event?.target;
-  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting to Paystack...'; }
-  try {
-    const data = await api('/api/payments/paystack/initialize', {
-      method: 'POST',
-      body: JSON.stringify({ plan }),
-    });
-    if (data.authorization_url) {
-      window.location.href = data.authorization_url;
-    } else {
-      throw new Error('Could not get payment URL. Please try again.');
+  if (provider === 'paystack') {
+    try {
+      const data = await api('/api/payments/paystack/initialize', {
+        method: 'POST',
+        body: JSON.stringify({ plan }),
+      });
+      if (data.authorization_url) {
+        window.location.href = data.authorization_url;
+      } else {
+        alert('Could not get payment URL. Please try again.');
+      }
+    } catch (e) {
+      alert(e.message);
     }
-  } catch (e) {
-    alert(e.message);
-    if (btn) { btn.disabled = false; btn.textContent = (plan === 'monthly' ? '📅' : '🗓️') + ' Pay with Paystack (GHS)'; }
+  } else {
+    alert('Stripe is not available. Please use Paystack (GHS).');
   }
 }
+
+
+async function renderSearch() {
+  const content = document.getElementById('main-content');
+  const mode = currentUser.company?.mode || 'corporate';
+  const isAcademic = mode === 'academic';
+  const role = currentUser.role;
+  const canSeeAdmins = (role === 'admin' || role === 'superadmin');
+
+  // inject filter button styles once
+  if (!document.getElementById('search-filter-styles')) {
+    const style = document.createElement('style');
+    style.id = 'search-filter-styles';
+    style.textContent = '.search-filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--text-light);font-size:12px;cursor:pointer;transition:all .15s}.search-filter-btn.active,.search-filter-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}';
+    document.head.appendChild(style);
+  }
+
+  let filterBtns = '<button class="search-filter-btn active" onclick="setSearchFilter(\'all\', this)">All</button>';
+  if (isAcademic) {
+    filterBtns += '<button class="search-filter-btn" onclick="setSearchFilter(\'student\', this)">Students</button>';
+    filterBtns += '<button class="search-filter-btn" onclick="setSearchFilter(\'lecturer\', this)">Lecturers</button>';
+  } else {
+    filterBtns += '<button class="search-filter-btn" onclick="setSearchFilter(\'employee\', this)">Employees</button>';
+    filterBtns += '<button class="search-filter-btn" onclick="setSearchFilter(\'manager\', this)">Managers</button>';
+  }
+  if (canSeeAdmins) {
+    filterBtns += '<button class="search-filter-btn" onclick="setSearchFilter(\'admin\', this)">Admins</button>';
+  }
+
+  const placeholder = isAcademic
+    ? 'Search by name, email, index number...'
+    : 'Search by name, email, employee ID...';
+
+  content.innerHTML =
+    '<div class="page-header"><h2>Search</h2><p>Find ' + (isAcademic ? 'students, lecturers, or staff' : 'employees or staff') + ' quickly</p></div>' +
+    '<div class="card" style="margin-bottom:16px">' +
+      '<div style="display:flex;gap:10px;align-items:center">' +
+        '<input type="text" id="search-input" placeholder="' + placeholder + '" style="flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:8px;font-size:14px;outline:none" oninput="debounceSearch()" onkeydown="if(event.key===\'Enter\')doSearch()">' +
+        '<button class="btn btn-primary" onclick="doSearch()" style="padding:12px 20px">Search</button>' +
+      '</div>' +
+      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap" id="search-filters">' + filterBtns + '</div>' +
+    '</div>' +
+    '<div id="search-results">' +
+      '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text-light)">' +
+        '<p>Enter a name, email' + (isAcademic ? ', or index number' : ', or employee ID') + ' to search</p>' +
+      '</div>' +
+    '</div>';
+}
+
+let searchFilter = 'all';
+let searchDebounceTimer = null;
+
+function setSearchFilter(filter, btn) {
+  searchFilter = filter;
+  document.querySelectorAll('.search-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  doSearch();
+}
+
+function debounceSearch() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(doSearch, 350);
+}
+
+async function doSearch() {
+  var query = document.getElementById('search-input') ? document.getElementById('search-input').value.trim() : '';
+  var resultsEl = document.getElementById('search-results');
+  if (!resultsEl) return;
+
+  if (!query || query.length < 2) {
+    resultsEl.innerHTML = '<div class="card"><div class="empty-state"><p>Enter at least 2 characters to search</p></div></div>';
+    return;
+  }
+
+  resultsEl.innerHTML = '<div class="card"><p>Searching...</p></div>';
+
+  try {
+    var params = new URLSearchParams({ q: query });
+    if (searchFilter !== 'all') params.append('role', searchFilter);
+    var data = await api('/api/search?' + params.toString());
+    var users = data.users || [];
+    var mode = currentUser.company ? currentUser.company.mode || 'corporate' : 'corporate';
+
+    if (users.length === 0) {
+      resultsEl.innerHTML = '<div class="card"><div class="empty-state"><p>No users found for "' + query + '"</p></div></div>';
+      return;
+    }
+
+    var rows = users.map(function(u) {
+      var idCol = mode === 'academic'
+        ? '<td>' + (u.indexNumber || u.email || '—') + '</td>'
+        : '<td>' + (u.email || '—') + '</td><td>' + (u.employeeId || '—') + '</td>';
+      var activeClass = u.isActive ? 'status-active' : 'status-stopped';
+      var activeLabel = u.isActive ? 'Active' : 'Inactive';
+      return '<tr><td style="font-weight:600">' + u.name + '</td>' + idCol +
+        '<td><span class="role-badge role-' + u.role + '">' + u.role + '</span></td>' +
+        '<td><span class="status-badge ' + activeClass + '">' + activeLabel + '</span></td>' +
+        '<td style="font-size:12px;color:var(--text-light)">' + new Date(u.createdAt).toLocaleDateString() + '</td></tr>';
+    }).join('');
+
+    var headerCols = mode === 'academic'
+      ? '<th>Index / Email</th>'
+      : '<th>Email</th><th>Employee ID</th>';
+
+    resultsEl.innerHTML =
+      '<div class="card">' +
+        '<div class="card-title" style="margin-bottom:12px">' + users.length + ' result' + (users.length !== 1 ? 's' : '') + ' for "<strong>' + query + '</strong>"</div>' +
+        '<table><thead><tr><th>Name</th>' + headerCols + '<th>Role</th><th>Status</th><th>Joined</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table>' +
+      '</div>';
+  } catch (e) {
+    resultsEl.innerHTML = '<div class="card"><p style="color:var(--danger)">Search failed: ' + e.message + '</p></div>';
+  }
+}
+
 
 function renderReports() {
   const content = document.getElementById('main-content');
@@ -3129,81 +3129,6 @@ function closeModal(event) {
   document.getElementById('modal-container').innerHTML = '';
 }
 
-// Touch support for portal cards — fixes tap not working on mobile/tablet
-(function() {
-  function attachPortalTouchHandlers() {
-    document.querySelectorAll('.portal-card').forEach(function(card) {
-      // Read the portal type from the existing onclick attribute
-      const onclickAttr = card.getAttribute('onclick') || '';
-      const match = onclickAttr.match(/selectPortal\('([^']+)'\)/);
-      if (!match) return;
-      const portalType = match[1];
-      // Remove old onclick to avoid double-firing
-      card.removeAttribute('onclick');
-      // Add both click and touchend so it works everywhere
-      card.addEventListener('click', function(e) {
-        e.preventDefault();
-        selectPortal(portalType);
-      });
-      card.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        selectPortal(portalType);
-      });
-    });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachPortalTouchHandlers);
-  } else {
-    attachPortalTouchHandlers();
-  }
-})();
-
-// ─── Paystack callback: auto-verify when redirected back after payment ───────
-(function handlePaystackCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const reference = params.get('reference') || params.get('trxref');
-  if (!reference || !token) return;
-
-  // Clean the URL immediately so a page refresh doesn't re-trigger
-  window.history.replaceState({}, document.title, window.location.pathname);
-
-  // Show loading state
-  document.getElementById('auth-page').style.display = 'none';
-  const dashPage = document.getElementById('dashboard-page');
-  dashPage.classList.remove('hidden');
-  document.getElementById('main-content').innerHTML = `
-    <div class="card" style="text-align:center;padding:48px 32px">
-      <div style="font-size:32px;margin-bottom:12px">⏳</div>
-      <h3 style="margin-bottom:8px">Verifying your payment…</h3>
-      <p style="color:var(--text-light)">Please wait while we confirm your Paystack transaction.</p>
-    </div>`;
-
-  fetch('/api/payments/paystack/verify?reference=' + encodeURIComponent(reference), {
-    headers: { 'Authorization': 'Bearer ' + token }
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.error) throw new Error(data.error);
-    document.getElementById('main-content').innerHTML = `
-      <div class="card" style="text-align:center;padding:48px 32px;border-top:4px solid var(--success)">
-        <div style="font-size:42px;margin-bottom:12px">🎉</div>
-        <h3 style="color:var(--success);margin-bottom:8px">Payment Successful!</h3>
-        <p style="color:var(--text-light);margin-bottom:20px">Your subscription is now <strong>active</strong>. Welcome aboard!</p>
-        <button class="btn btn-primary" onclick="loadUserData()">Go to Dashboard</button>
-      </div>`;
-  })
-  .catch(err => {
-    document.getElementById('main-content').innerHTML = `
-      <div class="card" style="text-align:center;padding:48px 32px;border-top:4px solid var(--danger)">
-        <div style="font-size:42px;margin-bottom:12px">❌</div>
-        <h3 style="color:var(--danger);margin-bottom:8px">Verification Failed</h3>
-        <p style="color:var(--text-light);margin-bottom:20px">${err.message || 'Could not verify payment. Please contact support with reference: ' + reference}</p>
-        <button class="btn btn-secondary" onclick="loadUserData()">Back to Dashboard</button>
-      </div>`;
-  });
-})();
-
-// Override the normal token-based load to skip if we're handling a Paystack callback
-if (token && !new URLSearchParams(window.location.search).get('reference') && !new URLSearchParams(window.location.search).get('trxref')) {
+if (token) {
   loadUserData();
 }
