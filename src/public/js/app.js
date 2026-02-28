@@ -3174,13 +3174,27 @@ function injectLegalFooter() {
     const footer = document.createElement('div');
     footer.className = 'legal-footer';
     footer.style.cssText = 'text-align:center;padding:24px 0 8px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap;';
-    const fn = 'showLegalPage';
-    const cs = 'color:#6366f1;font-size:13px;cursor:pointer;font-weight:500;text-decoration:underline;text-underline-offset:2px';
-    const dot = '<span style="color:#cbd5e1;font-size:13px">\u00b7</span>';
-    footer.innerHTML =
-      '<span onclick="' + fn + '(\"privacy\")" style="' + cs + '">Privacy Policy</span>' + dot +
-      '<span onclick="' + fn + '(\"terms\")" style="' + cs + '">Terms of Service</span>' + dot +
-      '<span onclick="' + fn + '(\"contact\")" style="' + cs + '">Contact &amp; Support</span>';
+
+    const pages = [
+      { label: 'Privacy Policy', page: 'privacy' },
+      { label: 'Terms of Service', page: 'terms' },
+      { label: 'Contact & Support', page: 'contact' },
+    ];
+
+    pages.forEach(function(item, i) {
+      if (i > 0) {
+        const dot = document.createElement('span');
+        dot.style.cssText = 'color:#cbd5e1;font-size:13px;';
+        dot.textContent = '·';
+        footer.appendChild(dot);
+      }
+      const link = document.createElement('span');
+      link.textContent = item.label;
+      link.style.cssText = 'color:#6366f1;font-size:13px;cursor:pointer;font-weight:500;text-decoration:underline;text-underline-offset:2px;';
+      link.addEventListener('click', function() { showLegalPage(item.page); });
+      footer.appendChild(link);
+    });
+
     ps.appendChild(footer);
   }
 }
