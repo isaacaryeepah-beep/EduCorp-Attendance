@@ -86,13 +86,10 @@ function selectPortal(type) {
 }
 
 function showPortalSelector() {
-  // If legal page is showing, restore the original auth-page structure
-  const authPage = document.getElementById('auth-page');
-  if (authPage && authPage.querySelector('.legal-page')) {
-    authPage.innerHTML = _authPageOriginalHTML;
-  }
+  // Remove legal overlay if open
+  const overlay = document.getElementById('legal-overlay');
+  if (overlay) overlay.remove();
 
-  authPage.style.display = 'flex';
   document.getElementById('admin-auth').classList.add('hidden');
   document.getElementById('lecturer-auth').classList.add('hidden');
   document.getElementById('employee-auth').classList.add('hidden');
@@ -3167,15 +3164,8 @@ function closeModal(event) {
   document.getElementById('modal-container').innerHTML = '';
 }
 
-// Save original auth-page HTML so Back button can restore it
-let _authPageOriginalHTML = '';
 document.addEventListener('DOMContentLoaded', function() {
-  const authPage = document.getElementById('auth-page');
-  if (authPage) {
-    _authPageOriginalHTML = authPage.innerHTML;
-    // Inject footer links immediately on page load
-    injectLegalFooter();
-  }
+  injectLegalFooter();
 });
 
 function injectLegalFooter() {
@@ -3201,18 +3191,16 @@ if (token) {
 
 // ===================== LEGAL PAGES =====================
 function showLegalPage(page) {
-  // Hide all portal/auth sections
-  ['portal-selector','admin-auth','lecturer-auth','employee-auth','student-auth'].forEach(function(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
-  });
+  // Remove any existing overlay
+  const existing = document.getElementById('legal-overlay');
+  if (existing) existing.remove();
 
-  // Inject CSS styles once
+  // Inject CSS once
   if (!document.getElementById('legal-styles')) {
     const s = document.createElement('style');
     s.id = 'legal-styles';
     s.textContent = `
-      .legal-page{display:flex;flex-direction:column;min-height:100vh;background:#f8fafc;font-family:'Segoe UI',system-ui,sans-serif;}
+      #legal-overlay{position:fixed;inset:0;background:#f8fafc;z-index:9999;display:flex;flex-direction:column;font-family:'Segoe UI',system-ui,sans-serif;overflow-y:auto;}
       .legal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10;}
       .legal-back{background:none;border:1px solid #e2e8f0;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;color:#64748b;transition:all .2s;}
       .legal-back:hover{background:#f1f5f9;color:#1e293b;}
@@ -3220,7 +3208,7 @@ function showLegalPage(page) {
       .legal-body{max-width:780px;width:100%;margin:0 auto;padding:48px 32px;flex:1;}
       .legal-title{font-size:32px;font-weight:800;color:#0f172a;margin:0 0 8px 0;letter-spacing:-1px;}
       .legal-updated{color:#94a3b8;font-size:13px;margin-bottom:28px;display:block;}
-      .legal-content h3{font-size:15px;font-weight:700;color:#1e293b;margin:28px 0 10px 0;text-transform:uppercase;letter-spacing:0.5px;}
+      .legal-content h3{font-size:14px;font-weight:700;color:#1e293b;margin:28px 0 10px 0;text-transform:uppercase;letter-spacing:0.5px;}
       .legal-content p{color:#475569;line-height:1.8;margin:0 0 14px 0;font-size:15px;}
       .legal-content ul{color:#475569;line-height:1.8;padding-left:20px;margin:0 0 14px 0;}
       .legal-content ul li{margin-bottom:6px;font-size:15px;}
@@ -3274,20 +3262,20 @@ function showLegalPage(page) {
         <li>Comply with legal obligations</li>
       </ul>
       <h3>4. Data Sharing</h3>
-      <p>We do not sell or rent your personal information to third parties. We may share data with trusted service providers (such as payment processors) solely to operate our platform, bound by confidentiality agreements.</p>
+      <p>We do not sell or rent your personal information to third parties. We may share data with trusted service providers solely to operate our platform, bound by confidentiality agreements.</p>
       <h3>5. Data Security</h3>
-      <p>We implement industry-standard security measures including encrypted connections (HTTPS), secure password hashing, and role-based access controls to protect your data.</p>
+      <p>We implement industry-standard security including encrypted connections (HTTPS), secure password hashing, and role-based access controls.</p>
       <h3>6. Data Retention</h3>
-      <p>We retain your data for as long as your account is active. You may request deletion of your account and associated data at any time by contacting us.</p>
+      <p>We retain your data for as long as your account is active. You may request deletion at any time by contacting us.</p>
       <h3>7. Your Rights</h3>
-      <p>You have the right to access, correct, or delete your personal data. To exercise these rights, please contact us using the details below.</p>
+      <p>You have the right to access, correct, or delete your personal data. Contact us to exercise these rights.</p>
       <h3>8. Cookies</h3>
       <p>We use local storage tokens for session authentication only. We do not use third-party advertising cookies.</p>
       <h3>9. Children's Privacy</h3>
-      <p>Our service is not directed to children under 13. We do not knowingly collect personal information from children under 13.</p>
+      <p>Our service is not directed to children under 13. We do not knowingly collect data from children under 13.</p>
       <h3>10. Contact Us</h3>
-      <p>📧 <a href="mailto:Kellywest251@gmail.com">Kellywest251@gmail.com</a><br>
-      📞 <a href="tel:+233559545339">+233 559 545 339</a></p>
+      <p>&#128231; <a href="mailto:Kellywest251@gmail.com">Kellywest251@gmail.com</a><br>
+      &#128222; <a href="tel:+233559545339">+233 559 545 339</a></p>
     `;
   } else if (page === 'terms') {
     title = 'Terms of Service';
@@ -3298,30 +3286,28 @@ function showLegalPage(page) {
       <h3>2. Description of Service</h3>
       <p>Smart Attendance is a cloud-based attendance management platform for corporate and academic institutions, providing session management, QR-based tracking, reporting, and more.</p>
       <h3>3. Account Registration</h3>
-      <p>You must provide accurate information when creating an account. You are responsible for maintaining the confidentiality of your login credentials and all activities under your account.</p>
+      <p>You must provide accurate information when creating an account. You are responsible for maintaining the confidentiality of your login credentials.</p>
       <h3>4. Acceptable Use</h3>
       <ul>
-        <li>You must not use the platform for any unlawful purpose</li>
-        <li>You must not attempt to gain unauthorized access to any part of the service</li>
-        <li>You must not share your credentials with unauthorized persons</li>
-        <li>You must not manipulate or falsify attendance records</li>
-        <li>You must not interfere with or disrupt the platform's integrity</li>
+        <li>Do not use the platform for any unlawful purpose</li>
+        <li>Do not attempt to gain unauthorized access to any part of the service</li>
+        <li>Do not share your credentials with unauthorized persons</li>
+        <li>Do not manipulate or falsify attendance records</li>
+        <li>Do not interfere with or disrupt the platform</li>
       </ul>
       <h3>5. Subscription and Payments</h3>
-      <p>Access to premium features requires a paid subscription. All payments are processed securely via Paystack. Subscription fees are non-refundable except as required by law. We reserve the right to change pricing with 30 days notice.</p>
+      <p>Access to premium features requires a paid subscription. All payments are processed via Paystack. Fees are non-refundable except as required by law. We reserve the right to change pricing with 30 days notice.</p>
       <h3>6. Trial Period</h3>
-      <p>New accounts receive a free trial period. At the end of the trial, a subscription is required to continue using premium features. We are not liable for data loss due to expired or unpaid accounts.</p>
+      <p>New accounts receive a free trial. After the trial, a subscription is required to continue using premium features.</p>
       <h3>7. Intellectual Property</h3>
-      <p>Smart Attendance and all associated content and features are owned by us and protected by copyright and other intellectual property laws.</p>
+      <p>Smart Attendance and all associated content are owned by us and protected by intellectual property laws.</p>
       <h3>8. Limitation of Liability</h3>
-      <p>To the maximum extent permitted by law, Smart Attendance shall not be liable for any indirect, incidental, or consequential damages arising from your use of the platform.</p>
+      <p>To the maximum extent permitted by law, Smart Attendance shall not be liable for any indirect or consequential damages arising from your use of the platform.</p>
       <h3>9. Termination</h3>
-      <p>We reserve the right to suspend or terminate your account for violation of these terms, non-payment, or conduct deemed harmful to users or the platform.</p>
-      <h3>10. Changes to Terms</h3>
-      <p>We may update these Terms at any time. Continued use of the platform after changes constitutes acceptance of the new terms.</p>
-      <h3>11. Contact Us</h3>
-      <p>📧 <a href="mailto:Kellywest251@gmail.com">Kellywest251@gmail.com</a><br>
-      📞 <a href="tel:+233559545339">+233 559 545 339</a></p>
+      <p>We reserve the right to suspend or terminate your account for violation of these terms or non-payment.</p>
+      <h3>10. Contact Us</h3>
+      <p>&#128231; <a href="mailto:Kellywest251@gmail.com">Kellywest251@gmail.com</a><br>
+      &#128222; <a href="tel:+233559545339">+233 559 545 339</a></p>
     `;
   } else if (page === 'contact') {
     title = 'Contact & Support';
@@ -3329,24 +3315,24 @@ function showLegalPage(page) {
       <span class="legal-updated">We typically respond within 24 hours</span>
       <div class="contact-grid">
         <div class="contact-card">
-          <div class="contact-icon">📧</div>
+          <div class="contact-icon">&#128231;</div>
           <h3>Email Us</h3>
           <p>Send us an email and we will respond within 24 hours.</p>
           <a href="mailto:Kellywest251@gmail.com" class="contact-link">Kellywest251@gmail.com</a>
         </div>
         <div class="contact-card">
-          <div class="contact-icon">📞</div>
+          <div class="contact-icon">&#128222;</div>
           <h3>Call Us</h3>
           <p>Speak with our support team during business hours.</p>
           <a href="tel:+233559545339" class="contact-link">+233 559 545 339</a>
         </div>
         <div class="contact-card">
-          <div class="contact-icon">🕐</div>
+          <div class="contact-icon">&#128336;</div>
           <h3>Support Hours</h3>
-          <p>Monday – Friday<br>8:00 AM – 6:00 PM (GMT)</p>
+          <p>Monday to Friday<br>8:00 AM to 6:00 PM (GMT)</p>
         </div>
         <div class="contact-card">
-          <div class="contact-icon">💬</div>
+          <div class="contact-icon">&#128172;</div>
           <h3>WhatsApp</h3>
           <p>Message us on WhatsApp for quick assistance.</p>
           <a href="https://wa.me/233559545339" target="_blank" class="contact-link">Chat on WhatsApp</a>
@@ -3356,11 +3342,11 @@ function showLegalPage(page) {
         <h3>Frequently Asked Questions</h3>
         <div class="faq-item">
           <strong>How do I reset my password?</strong>
-          <p>Contact your institution admin to reset your password, or email us directly at Kellywest251@gmail.com.</p>
+          <p>Contact your institution admin to reset your password, or email us at Kellywest251@gmail.com.</p>
         </div>
         <div class="faq-item">
           <strong>How does QR attendance work?</strong>
-          <p>Admins or lecturers start a session and generate a QR code. Students or employees scan or enter the code to mark their attendance in real time.</p>
+          <p>Admins or lecturers start a session and generate a QR code. Students or employees enter the code to mark their attendance in real time.</p>
         </div>
         <div class="faq-item">
           <strong>What payment methods are accepted?</strong>
@@ -3378,25 +3364,25 @@ function showLegalPage(page) {
     `;
   }
 
-  const authPage = document.getElementById('auth-page');
-  authPage.innerHTML = `
-    <div class="legal-page">
-      <div class="legal-header">
-        <button class="legal-back" onclick="showPortalSelector()">&#8592; Back</button>
-        <div class="legal-logo">Smart Attendance</div>
-      </div>
-      <div class="legal-body">
-        <h2 class="legal-title">${title}</h2>
-        <div class="legal-content">${bodyContent}</div>
-      </div>
-      <div class="legal-footer-bar">
-        <span class="legal-footer-link" onclick="showLegalPage('privacy')">Privacy Policy</span>
-        <span class="legal-footer-sep">·</span>
-        <span class="legal-footer-link" onclick="showLegalPage('terms')">Terms of Service</span>
-        <span class="legal-footer-sep">·</span>
-        <span class="legal-footer-link" onclick="showLegalPage('contact')">Contact & Support</span>
-      </div>
-    </div>
-  `;
+  const overlay = document.createElement('div');
+  overlay.id = 'legal-overlay';
+  overlay.innerHTML =
+    '<div class="legal-header">' +
+      '<button class="legal-back" onclick="showPortalSelector()">&#8592; Back</button>' +
+      '<div class="legal-logo">Smart Attendance</div>' +
+    '</div>' +
+    '<div class="legal-body">' +
+      '<h2 class="legal-title">' + title + '</h2>' +
+      '<div class="legal-content">' + bodyContent + '</div>' +
+    '</div>' +
+    '<div class="legal-footer-bar">' +
+      '<span class="legal-footer-link" onclick="showLegalPage("privacy")">Privacy Policy</span>' +
+      '<span class="legal-footer-sep">&#183;</span>' +
+      '<span class="legal-footer-link" onclick="showLegalPage("terms")">Terms of Service</span>' +
+      '<span class="legal-footer-sep">&#183;</span>' +
+      '<span class="legal-footer-link" onclick="showLegalPage("contact")">Contact &amp; Support</span>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
 }
 // ===================== END LEGAL PAGES =====================
