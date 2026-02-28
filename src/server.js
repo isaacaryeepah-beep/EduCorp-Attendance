@@ -21,6 +21,7 @@ const rosterRoutes = require("./routes/roster");
 const adminReportRoutes = require("./routes/adminReports");
 const adminDashboardRoutes = require("./routes/adminDashboard");
 const jitsiRoutes = require("./routes/jitsi");
+const searchRoutes = require("./routes/Search");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +51,7 @@ app.get("/api", (req, res) => {
       quizzes: "/api/quizzes",
       zoom: "/api/zoom",
       jitsi: "/api/jitsi",
+      search: "/api/search",
     },
   });
 });
@@ -75,6 +77,7 @@ app.use("/api/roster", rosterRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
 app.use("/api/jitsi", jitsiRoutes);
 app.use("/api/admin", adminDashboardRoutes);
+app.use("/api/search", searchRoutes);
 
 app.use((req, res) => {
   const indexPath = path.join(__dirname, "public", "index.html");
