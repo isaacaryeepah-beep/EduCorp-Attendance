@@ -620,8 +620,10 @@ function buildSidebar() {
       links.push({ id: 'approvals', label: 'Approvals', icon: approvalsIcon() });
       links.push({ id: 'search', label: 'Search', icon: svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>') });
       links.push({ id: 'users', label: 'Users', icon: usersIcon() });
+      links.push({ id: 'sessions', label: 'Sessions', icon: sessionsIcon() });
       if (currentUser.company?.mode === 'academic') {
         links.push({ id: 'courses', label: 'Courses', icon: coursesIcon() });
+        links.push({ id: 'quizzes', label: 'Quizzes', icon: quizzesIcon() });
       }
       links.push({ id: 'meetings', label: 'Meetings', icon: meetingsIcon() });
       links.push({ id: 'reports', label: 'Reports', icon: reportsIcon() });
