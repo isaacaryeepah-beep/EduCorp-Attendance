@@ -213,6 +213,19 @@ async function handleAdminLogin() {
     if (!password) return showAdminError('Please enter your password');
     const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 
+    // Block non-admin roles from admin portals
+    const userRole = data.user?.role;
+    if (!['admin', 'superadmin', 'manager'].includes(userRole)) {
+      try { await api('/api/auth/logout', { method: 'POST' }); } catch(e) {}
+      if (userRole === 'lecturer') {
+        return showAdminError('This is a Lecturer account. Please use the Lecturer Portal to sign in.');
+      } else if (userRole === 'student') {
+        return showAdminError('This is a Student account. Please use the Student Portal to sign in.');
+      } else {
+        return showAdminError('This portal is for Admins and Managers only.');
+      }
+    }
+
     const companyMode = data.user && data.user.company ? data.user.company.mode : 'corporate';
     const expectedMode = selectedPortalType === 'admin-academic' ? 'academic' : 'corporate';
     if (companyMode !== expectedMode) {
@@ -264,6 +277,20 @@ async function handleLecturerLogin() {
     if (!email) return showLecturerError('Please enter your email');
     if (!password) return showLecturerError('Please enter your password');
     const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, portalMode: 'academic' }) });
+
+    // ✅ Only lecturers allowed in lecturer portal
+    const userRole = data.user?.role;
+    if (userRole !== 'lecturer') {
+      try { await api('/api/auth/logout', { method: 'POST' }); } catch(e) {}
+      if (userRole === 'admin' || userRole === 'superadmin') {
+        return showLecturerError('This is an Admin account. Please use the Academic Admin Portal to sign in.');
+      } else if (userRole === 'student') {
+        return showLecturerError('This is a Student account. Please use the Student Portal to sign in.');
+      } else {
+        return showLecturerError('This portal is for Lecturers only.');
+      }
+    }
+
     if (data.user && !data.user.isApproved) {
       return showPendingApproval('Your account is pending admin approval. Please wait for your institution admin to approve your account.');
     }
