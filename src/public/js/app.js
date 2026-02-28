@@ -218,11 +218,11 @@ async function handleAdminLogin() {
     if (!['admin', 'superadmin', 'manager'].includes(userRole)) {
       try { await api('/api/auth/logout', { method: 'POST' }); } catch(e) {}
       if (userRole === 'lecturer') {
-        return showAdminError('This is a Lecturer account. Please use the Lecturer Portal to sign in.');
+        return showAdminError('Invalid email or password. Please try again.');
       } else if (userRole === 'student') {
-        return showAdminError('This is a Student account. Please use the Student Portal to sign in.');
+        return showAdminError('Invalid email or password. Please try again.');
       } else {
-        return showAdminError('This portal is for Admins and Managers only.');
+        return showAdminError('Invalid email or password. Please try again.');
       }
     }
 
@@ -231,9 +231,9 @@ async function handleAdminLogin() {
     if (companyMode !== expectedMode) {
       try { await api('/api/auth/logout', { method: 'POST' }); } catch(e) {}
       if (expectedMode === 'academic') {
-        return showAdminError('This is a Corporate account. Please use the Corporate Admin Portal to sign in.');
+        return showAdminError('Invalid email or password. Please try again.');
       } else {
-        return showAdminError('This is an Academic account. Please use the Academic Admin Portal to sign in.');
+        return showAdminError('Invalid email or password. Please try again.');
       }
     }
 
@@ -283,11 +283,11 @@ async function handleLecturerLogin() {
     if (userRole !== 'lecturer') {
       try { await api('/api/auth/logout', { method: 'POST' }); } catch(e) {}
       if (userRole === 'admin' || userRole === 'superadmin') {
-        return showLecturerError('This is an Admin account. Please use the Academic Admin Portal to sign in.');
+        return showLecturerError('Invalid email or password. Please try again.');
       } else if (userRole === 'student') {
-        return showLecturerError('This is a Student account. Please use the Student Portal to sign in.');
+        return showLecturerError('Invalid email or password. Please try again.');
       } else {
-        return showLecturerError('This portal is for Lecturers only.');
+        return showLecturerError('Invalid email or password. Please try again.');
       }
     }
 
