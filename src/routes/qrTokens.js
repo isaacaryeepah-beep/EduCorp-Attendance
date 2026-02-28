@@ -17,7 +17,7 @@ const DEFAULT_EXPIRY_MINUTES = 5;
 
 router.post(
   "/generate",
-  requireRole("manager", "lecturer", "superadmin"),
+  requireRole("admin", "manager", "lecturer", "superadmin"),
   companyIsolation,
   async (req, res) => {
     try {
@@ -147,7 +147,7 @@ router.post("/validate", validateDevice, enforceLogoutRestriction, async (req, r
 
 router.get(
   "/session/:sessionId",
-  requireRole("manager", "lecturer", "admin", "superadmin"),
+  requireRole("admin", "manager", "lecturer", "superadmin"),
   companyIsolation,
   async (req, res) => {
     try {
