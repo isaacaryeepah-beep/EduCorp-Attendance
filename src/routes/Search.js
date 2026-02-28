@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const authenticate = require("../middleware/auth");
 const { requireRole } = require("../middleware/role");
-const { companyIsolation } = require("../middleware/companyIsolation");
 const mongoose = require("mongoose");
 const User = require("../models/User");
 
@@ -12,7 +11,6 @@ router.use(authenticate);
 router.get(
   "/",
   requireRole("admin", "manager", "lecturer", "superadmin"),
-  companyIsolation,
   async (req, res) => {
     try {
       const { q, role } = req.query;
@@ -21,12 +19,18 @@ router.get(
         return res.status(400).json({ error: "Query must be at least 2 characters" });
       }
 
-      const companyId = req.user.company?._id || req.user.company;
+      // Get company ID safely regardless of how it's stored
+      let companyId = req.user.company;
+      if (companyId && typeof companyId === 'object' && companyId._id) {
+        companyId = companyId._id;
+      }
+
+      console.log("Search query:", q, "Company:", companyId, "Role filter:", role);
+
       const searchRegex = new RegExp(q.trim(), "i");
 
       const filter = {
-        company: new mongoose.Types.ObjectId(String(companyId)),
-        _id: { $ne: req.user._id },
+        company: companyId,
         $or: [
           { name: searchRegex },
           { email: searchRegex },
@@ -35,19 +39,28 @@ router.get(
         ],
       };
 
+      // Exclude self
+      if (req.user._id) {
+        filter._id = { $ne: req.user._id };
+      }
+
       if (role && role !== "all") {
         filter.role = role;
       }
+
+      console.log("Search filter:", JSON.stringify(filter));
 
       const users = await User.find(filter)
         .select("name email indexNumber employeeId role isActive createdAt department")
         .limit(50)
         .lean();
 
+      console.log("Search results:", users.length);
+
       return res.json({ users });
     } catch (e) {
       console.error("Search error:", e);
-      return res.status(500).json({ error: "Search failed" });
+      return res.status(500).json({ error: "Search failed: " + e.message });
     }
   }
 );
