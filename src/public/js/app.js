@@ -555,6 +555,8 @@ async function loadUserData() {
     currentUser = data.user;
     if (!currentUser) throw new Error('No user data');
     showDashboard(data);
+    // Sync any offline queued attendance on login
+    setTimeout(syncOfflineQueue, 2000);
   } catch (e) {
     localStorage.removeItem('token');
     token = null;
@@ -2665,11 +2667,8 @@ async function submitCodeMark() {
   const code = document.getElementById('mark-code-input')?.value;
   if (!code || code.length !== 6) return alert('Please enter a valid 6-digit code');
   try {
-    await api('/api/attendance-sessions/mark', {
-      method: 'POST',
-      body: JSON.stringify({ code, method: 'code_mark' }),
-    });
-    alert('Attendance marked successfully!');
+    const result = await markAttendanceWithOfflineSupport({ code, method: 'code_mark' });
+    if (!result.offline) alert('Attendance marked successfully!');
     navigateTo('mark-attendance');
   } catch (e) {
     alert(e.message);
@@ -2680,11 +2679,8 @@ async function submitQrMark() {
   const qrToken = document.getElementById('mark-qr-input')?.value;
   if (!qrToken) return alert('Please enter the QR token');
   try {
-    await api('/api/attendance-sessions/mark', {
-      method: 'POST',
-      body: JSON.stringify({ qrToken, method: 'qr_mark' }),
-    });
-    alert('Attendance marked successfully!');
+    const result = await markAttendanceWithOfflineSupport({ qrToken, method: 'qr_mark' });
+    if (!result.offline) alert('Attendance marked successfully!');
     navigateTo('mark-attendance');
   } catch (e) {
     alert(e.message);
@@ -2693,11 +2689,8 @@ async function submitQrMark() {
 
 async function markBLE() {
   try {
-    await api('/api/attendance-sessions/mark', {
-      method: 'POST',
-      body: JSON.stringify({ method: 'ble_mark' }),
-    });
-    alert('BLE attendance marked successfully!');
+    const result = await markAttendanceWithOfflineSupport({ method: 'ble_mark' });
+    if (!result.offline) alert('BLE attendance marked successfully!');
     navigateTo('mark-attendance');
   } catch (e) {
     alert(e.message);
@@ -2739,11 +2732,8 @@ async function showJitsiJoin() {
 async function submitJitsiJoin(meetingId, joinUrl) {
   try {
     await api(`/api/zoom/${meetingId}/join`, { method: 'POST' });
-    await api('/api/attendance-sessions/mark', {
-      method: 'POST',
-      body: JSON.stringify({ method: 'jitsi_join', meetingId }),
-    });
-    alert('Attendance marked via meeting join!');
+    const result = await markAttendanceWithOfflineSupport({ method: 'jitsi_join', meetingId });
+    if (!result.offline) alert('Attendance marked via meeting join!');
     if (joinUrl) window.open(joinUrl, '_blank');
     navigateTo('mark-attendance');
   } catch (e) {
@@ -2777,12 +2767,9 @@ async function markAttendance() {
   try {
     const code = document.getElementById('attend-code').value;
     if (!code || code.length < 4) return alert('Please enter a valid code');
-    await api('/api/attendance-sessions/mark', {
-      method: 'POST',
-      body: JSON.stringify({ code, method: 'code_mark' }),
-    });
+    const result = await markAttendanceWithOfflineSupport({ code, method: 'code_mark' });
     closeModal();
-    alert('Attendance marked successfully!');
+    if (!result.offline) alert('Attendance marked successfully!');
     renderMyAttendance();
   } catch (e) {
     alert(e.message);
@@ -3198,6 +3185,236 @@ function injectLegalFooter() {
     ps.appendChild(footer);
   }
 }
+
+
+// ============================================================
+// OFFLINE ATTENDANCE QUEUE SYSTEM
+// ============================================================
+
+const OFFLINE_QUEUE_KEY = 'attendance_offline_queue';
+
+// --- IndexedDB with localStorage fallback ---
+function offlineQueueGet() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function offlineQueueSet(queue) {
+  try {
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+  } catch (e) {
+    console.warn('Offline queue storage failed:', e);
+  }
+}
+
+function offlineQueueAdd(payload) {
+  const queue = offlineQueueGet();
+  // Prevent duplicate: same sessionId + method already queued
+  const isDuplicate = queue.some(function(item) {
+    return item.sessionId && payload.sessionId && item.sessionId === payload.sessionId;
+  });
+  if (isDuplicate) {
+    console.log('[OfflineQueue] Duplicate skipped:', payload);
+    return false;
+  }
+  const entry = Object.assign({}, payload, {
+    _queueId: Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+    _queuedAt: new Date().toISOString(),
+    _token: token || localStorage.getItem('token'),
+  });
+  queue.push(entry);
+  offlineQueueSet(queue);
+  console.log('[OfflineQueue] Saved offline:', entry);
+  return true;
+}
+
+function offlineQueueRemove(queueId) {
+  const queue = offlineQueueGet().filter(function(item) {
+    return item._queueId !== queueId;
+  });
+  offlineQueueSet(queue);
+}
+
+function offlineQueueCount() {
+  return offlineQueueGet().length;
+}
+
+// --- Show offline banner ---
+function showOfflineBanner(msg) {
+  let banner = document.getElementById('offline-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'offline-banner';
+    banner.style.cssText = [
+      'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);',
+      'background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;',
+      'font-size:13px;font-weight:500;z-index:99999;max-width:90vw;text-align:center;',
+      'box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:10px;',
+      'animation:slideUp .3s ease;'
+    ].join('');
+    if (!document.getElementById('offline-banner-style')) {
+      const s = document.createElement('style');
+      s.id = 'offline-banner-style';
+      s.textContent = '@keyframes slideUp{from{transform:translateX(-50%) translateY(20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}';
+      document.head.appendChild(s);
+    }
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = msg;
+  clearTimeout(banner._hideTimer);
+  banner._hideTimer = setTimeout(function() {
+    if (banner.parentNode) banner.parentNode.removeChild(banner);
+  }, 5000);
+}
+
+function hideOfflineBanner() {
+  const banner = document.getElementById('offline-banner');
+  if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+}
+
+// --- Core: mark attendance with offline fallback ---
+async function markAttendanceWithOfflineSupport(payload) {
+  if (!navigator.onLine) {
+    // OFFLINE PATH
+    const added = offlineQueueAdd(payload);
+    if (added) {
+      showOfflineBanner(
+        '&#128396; Saved offline. Will sync automatically when you are back online.'
+      );
+    } else {
+      showOfflineBanner('&#9888;&#65039; Attendance already saved offline for this session.');
+    }
+    return { offline: true };
+  }
+
+  // ONLINE PATH — try normally, fallback to queue on network error
+  try {
+    const result = await api('/api/attendance-sessions/mark', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return result;
+  } catch (e) {
+    // If it looks like a network failure (not a server rejection), queue it
+    const isNetworkError = (
+      e.message === 'Failed to fetch' ||
+      e.message === 'Network request failed' ||
+      e.message === 'Load failed' ||
+      !navigator.onLine
+    );
+    if (isNetworkError) {
+      const added = offlineQueueAdd(payload);
+      if (added) {
+        showOfflineBanner(
+          '&#128396; No connection. Saved offline. Will sync when you are back online.'
+        );
+      }
+      return { offline: true };
+    }
+    throw e; // Server error (e.g. already marked, invalid code) — re-throw normally
+  }
+}
+
+// --- Sync queued records to backend ---
+let _isSyncing = false;
+
+async function syncOfflineQueue() {
+  if (_isSyncing) return;
+  const queue = offlineQueueGet();
+  if (queue.length === 0) return;
+
+  const currentToken = token || localStorage.getItem('token');
+  if (!currentToken) {
+    console.log('[OfflineQueue] No token, sync skipped');
+    return;
+  }
+
+  if (!navigator.onLine) return;
+
+  _isSyncing = true;
+  console.log('[OfflineQueue] Syncing', queue.length, 'record(s)...');
+
+  let synced = 0;
+  let failed = 0;
+
+  for (const entry of queue) {
+    try {
+      const payload = {};
+      // Copy only the original attendance fields (not internal _queue fields)
+      ['code', 'qrToken', 'method', 'sessionId', 'meetingId'].forEach(function(k) {
+        if (entry[k] !== undefined) payload[k] = entry[k];
+      });
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (entry._token || currentToken),
+      };
+
+      const res = await fetch('/api/attendance-sessions/sync-offline', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(function() { return {}; });
+
+      if (res.ok || res.status === 409 || (data && data.alreadyMarked)) {
+        // Success OR already marked on server → remove from queue either way
+        offlineQueueRemove(entry._queueId);
+        synced++;
+        console.log('[OfflineQueue] Synced:', entry._queueId);
+      } else if (res.status === 401 || res.status === 403) {
+        // Token expired — stop syncing, keep in queue
+        console.log('[OfflineQueue] Auth error, stopping sync');
+        break;
+      } else {
+        // Other server error (session closed, etc.) — remove to avoid stuck queue
+        console.log('[OfflineQueue] Server rejected, removing:', data.error || res.status);
+        offlineQueueRemove(entry._queueId);
+        failed++;
+      }
+    } catch (e) {
+      // Network error during sync — stop and retry later
+      console.log('[OfflineQueue] Network error during sync, will retry:', e.message);
+      break;
+    }
+  }
+
+  _isSyncing = false;
+
+  const remaining = offlineQueueCount();
+  if (synced > 0) {
+    if (remaining === 0) {
+      showOfflineBanner('&#9989; Attendance synced successfully!');
+    } else {
+      showOfflineBanner('&#9989; ' + synced + ' record(s) synced. ' + remaining + ' remaining.');
+    }
+  }
+
+  console.log('[OfflineQueue] Sync done. Synced:', synced, 'Failed:', failed, 'Remaining:', remaining);
+}
+
+// --- Auto-sync triggers ---
+window.addEventListener('online', function() {
+  console.log('[OfflineQueue] Back online — triggering sync');
+  showOfflineBanner('&#127757; Back online! Syncing attendance...');
+  setTimeout(syncOfflineQueue, 1000);
+});
+
+// Periodic sync every 30 seconds (catches edge cases)
+setInterval(function() {
+  if (navigator.onLine && offlineQueueCount() > 0) {
+    syncOfflineQueue();
+  }
+}, 30000);
+
+// ============================================================
+// END OFFLINE ATTENDANCE QUEUE SYSTEM
+// ============================================================
 
 if (token) {
   loadUserData();
