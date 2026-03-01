@@ -1,52 +1,49 @@
 const mongoose = require("mongoose");
 
-const attendanceSessionSchema = new mongoose.Schema(
+const attendanceRecordSchema = new mongoose.Schema(
   {
+    session: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AttendanceSession",
+      required: [true, "Session is required"],
+      index: true,
+    },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "User is required"],
+    },
     company: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
       required: [true, "Company is required"],
       index: true,
     },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "Creator is required"],
+    checkInTime: {
+      type: Date,
+      default: Date.now,
     },
-    title: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    course: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
+    checkOutTime: {
+      type: Date,
       default: null,
     },
     status: {
       type: String,
-      enum: ["active", "stopped"],
-      default: "active",
+      enum: ["present", "late", "absent", "excused"],
+      default: "present",
     },
-    startedAt: {
-      type: Date,
-      default: Date.now,
+    method: {
+      type: String,
+      enum: ["qr_mark", "code_mark", "ble_mark", "jitsi_join", "manual"],
+      default: "manual",
     },
-    stoppedAt: {
-      type: Date,
+    deviceId: {
+      type: String,
       default: null,
     },
-    stoppedBy: {
+    qrToken: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
-    qrSeed: {
-      type: String,
-      default: null,
-    },
-    bleLocationId: {
-      type: String,
+      ref: "QrToken",
       default: null,
     },
   },
@@ -55,7 +52,7 @@ const attendanceSessionSchema = new mongoose.Schema(
   }
 );
 
-attendanceSessionSchema.index({ company: 1, status: 1 });
-attendanceSessionSchema.index({ company: 1, startedAt: -1 });
+attendanceRecordSchema.index({ session: 1, user: 1 }, { unique: true });
+attendanceRecordSchema.index({ company: 1, user: 1, checkInTime: -1 });
 
-module.exports = mongoose.model("AttendanceSession", attendanceSessionSchema);
+module.exports = mongoose.model("AttendanceRecord", attendanceRecordSchema);
