@@ -55,4 +55,4 @@ const attendanceRecordSchema = new mongoose.Schema(
 attendanceRecordSchema.index({ session: 1, user: 1 }, { unique: true });
 attendanceRecordSchema.index({ company: 1, user: 1, checkInTime: -1 });
 
-module.exports = mongoose.model("AttendanceRecord", attendanceRecordSchema);
+module.exports = mongoose.models.AttendanceRecord || mongoose.model("AttendanceRecord", attendanceRecordSchema);
